@@ -22,7 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stdio.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -32,6 +32,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+#define SAMPLE_NUMBER 100
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -127,18 +128,153 @@ int main(void)
   MX_USB_OTG_FS_USB_Init();
   /* USER CODE BEGIN 2 */
   int32_t ADC_data[2]={0,0};
+
+  int32_t emg_prev;
+  int32_t emg;
+
+  int32_t f[100] = {0, 0, 0, 0, 0};
+  int32_t g[100] = {0, 0, 0, 0, 0};
+
+  int32_t i = 5;
+
+  int muscle_work = 1;
+  int heart_work = 1;
+
+  uint16_t heartrate[1000];
+  int32_t heart_cnt = 0;
+
+  uint16_t value[SAMPLE_NUMBER] = {0};
+  uint8_t valueCount_=255;
+
+  uint32_t nowTim=0,lastTim=0;
+
+  char msg[100];
+
+  int loop_cnt = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+  	emg_prev = emg;
+
 		HAL_ADC_Start(&hadc1);
 		HAL_ADC_PollForConversion(&hadc1, 10);
 		ADC_data[0] = HAL_ADC_GetValue(&hadc1);
 		HAL_ADC_Start(&hadc1);
 		HAL_ADC_PollForConversion(&hadc1, 10);
 		ADC_data[1] = HAL_ADC_GetValue(&hadc1);
+
+		emg = ADC_data[0];
+		int32_t err = (emg - emg_prev > 0)?(emg - emg_prev):(emg_prev - emg);
+
+		if (err <= 20 * 4) {
+			f[i] = f[i - 1] + 1;
+		}
+		else {
+			f[i] = 0;
+		}
+
+		if (emg_prev + 10 * 4 > emg) {
+			g[i] = g[i - 1] + 1;
+		}
+		else {
+			g[i] = 0;
+		}
+
+		muscle_work = (f[i] >= 5 || g[i] >= 5)?1:0;
+
+		i++;
+
+		if (i == 100) {
+			i = 5;
+			for (int j = 0; j < 5; j++) {
+				f[j] = f[j+95];
+				g[j] = g[j+95];
+			}
+		}
+
+		valueCount_++;
+		if (valueCount_ >= SAMPLE_NUMBER) valueCount_ = 0;
+		value[valueCount_] = ADC_data[1];
+
+		static uint8_t timeFlag;
+		static unsigned long sampleTime[10];
+		unsigned long valueTime_;
+		uint8_t count_;
+
+		if (valueCount_) {
+			count_ = valueCount_ - 1;
+		} else {
+			count_ = SAMPLE_NUMBER - 1;
+		}
+		if((value[valueCount_] > 1000 * 4) && (value[count_] < 20 * 4)) {
+			nowTim = HAL_GetTick();
+			uint32_t difTime = nowTim - lastTim;
+			lastTim = nowTim;
+
+			if(difTime > 300 || difTime < 2000) {
+				sampleTime[timeFlag++] = difTime;
+				if (timeFlag > 9) timeFlag = 0;
+			}
+			if (0 == sampleTime[9]) {
+				//continue;
+				sampleTime[9] = sampleTime[9];
+			}
+
+			uint32_t Arrange[10] = {0};
+			for (int i = 0; i < 10; i++) {
+				Arrange[i] = sampleTime[i];
+			}
+
+			uint32_t Arrange_=0;
+			for(int i=9;i>0;i--){
+				for(int j=0;j<i;j++){
+					if(Arrange[j] > Arrange[j+1]){
+						Arrange_ = Arrange[j];
+						Arrange[j] = Arrange[j+1];
+						Arrange[j+1] = Arrange_;
+					}
+				}
+			}
+			if((Arrange[7]-Arrange[3])>120){
+        //continue;
+				Arrange[7] = Arrange[7];
+			}
+
+			Arrange_ = 0;
+			for(int i=3;i<=7;i++){
+				Arrange_ += Arrange[i];
+			}
+
+			valueTime_ = 300000/Arrange_;///<60*1000*(7-2)
+			heartrate[heart_cnt] = (uint16_t)valueTime_;
+			heart_cnt++;
+			if (heart_cnt >= 1000) heart_cnt = 0;
+			if ((uint16_t)valueTime_ > 100) {
+				heart_work = 0;
+				for (int i = 1; i <= 6; i++) {
+					int k = heart_cnt - i;
+					if (k < 0) k += 1000;
+					if (heartrate[k] > 100) continue;
+					else {
+						heart_work = 1;
+						break;
+					}
+				}
+			}
+			if ((uint16_t)valueTime_ >= 60 && (uint16_t)valueTime_ <= 100) heart_work =1;
+		}
+		if (loop_cnt % 25 == 0) {
+		  sprintf(msg, "%i\r\nMuscle: %i\r\nHeart: %i\r\n\r\n", loop_cnt, muscle_work, heart_work);
+		  HAL_UART_Transmit(&huart1, (uint8_t*)msg, strlen(msg), HAL_MAX_DELAY);
+
+		}
+
+	  loop_cnt++;
+	  HAL_Delay(20);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
