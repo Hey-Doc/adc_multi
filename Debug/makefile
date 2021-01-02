@@ -54,8 +54,8 @@ all: main-build
 main-build: adc_multi.elf secondary-outputs
 
 # Tool invocations
-adc_multi.elf: $(OBJS) $(USER_OBJS) D:\sigma\ intelligence\stm\adc_multi\STM32L4S5VITX_FLASH.ld
-	arm-none-eabi-gcc -o "adc_multi.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\sigma intelligence\stm\adc_multi\STM32L4S5VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="adc_multi.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+adc_multi.elf: $(OBJS) $(USER_OBJS) D:\STM32CubeIDE\workspace_1.5.0\adc_multi\STM32L4S5VITX_FLASH.ld
+	arm-none-eabi-gcc -o "adc_multi.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"D:\STM32CubeIDE\workspace_1.5.0\adc_multi\STM32L4S5VITX_FLASH.ld" --specs=nosys.specs -Wl,-Map="adc_multi.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
